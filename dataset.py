@@ -19,14 +19,16 @@ import matplotlib.pyplot as plt
 import sys
 
 class ObjaverseDataLoader():
-    def __init__(self, root_dir, batch_size, total_view=12, num_workers=4):
+    def __init__(self, root_dir, batch_size, total_view=12, num_workers=4, image_width=256, image_height=256):
         # super().__init__(self, root_dir, batch_size, total_view, num_workers)
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.total_view = total_view
+        self.image_width = image_width
+        self.image_height = image_height
 
-        image_transforms = [torchvision.transforms.Resize((256, 256)),
+        image_transforms = [torchvision.transforms.Resize((self.image_height, self.image_width)),
                             transforms.ToTensor(),
                             transforms.Normalize([0.5], [0.5])]
         self.image_transforms = torchvision.transforms.Compose(image_transforms)
@@ -41,7 +43,7 @@ class ObjaverseDataLoader():
     def val_dataloader(self):
         dataset = ObjaverseData(root_dir=self.root_dir, total_view=self.total_view, validation=True,
                                 image_transforms=self.image_transforms)
-        sampler = DistributedSampler(dataset)
+        # sampler = DistributedSampler(dataset)
         return wds.WebLoader(dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
 
@@ -70,11 +72,15 @@ class ObjaverseData(Dataset):
                 if os.path.isdir(os.path.join(self.root_dir, folder)):
                     self.paths.append(folder)
 
+        # # TODO: ZZ debug
+        # self.paths = self.paths[:500]
         total_objects = len(self.paths)
+
+        train_percentage = 99.
         if validation:
-            self.paths = self.paths[math.floor(total_objects / 100. * 99.):]  # used last 1% as validation
+            self.paths = self.paths[math.floor(total_objects / 100. * train_percentage):]  # used last 1% as validation
         else:
-            self.paths = self.paths[:math.floor(total_objects / 100. * 99.)]  # used first 99% as training
+            self.paths = self.paths[:math.floor(total_objects / 100. * train_percentage)]  # used first 99% as training
         print('============= length of dataset %d =============' % len(self.paths))
         self.tform = image_transforms
 
@@ -122,8 +128,11 @@ class ObjaverseData(Dataset):
 
     def __getitem__(self, index):
         data = {}
-        total_view = 12
-        index_target, index_cond = random.sample(range(total_view), 2)  # without replacement
+        total_view = self.total_view
+        view_indices_to_sample_from = range(total_view)
+        # TODO: ZZ debug
+        view_indices_to_sample_from = range(12, 24)
+        index_target, index_cond = random.sample(view_indices_to_sample_from, 2)  # without replacement
         filename = os.path.join(self.root_dir, self.paths[index])
 
         # print(self.paths[index])
@@ -160,9 +169,11 @@ class ObjaverseData(Dataset):
 # main
 if __name__ == "__main__":
     # test dataloader
-    dataloader = ObjaverseDataLoader(root_dir='/data/zero123/views_release', batch_size=2, num_workers=4)
+    # dataloader = ObjaverseDataLoader(root_dir='/data/zero123/views_release', batch_size=2, num_workers=4)
+    dataloader = ObjaverseDataLoader(root_dir='objaverse-mix/000-000', batch_size=2, num_workers=4)
 
     train_loader = dataloader.train_dataloader()
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     for i, data in enumerate(dataloader.train_dataloader()):
         print(data)
+        break

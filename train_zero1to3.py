@@ -569,7 +569,11 @@ def main(args):
 
     # Load scheduler and models
     noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler", revision=args.revision)
-    image_encoder = CLIPVisionModelWithProjection.from_pretrained(args.pretrained_model_name_or_path, subfolder="image_encoder", revision=args.revision)
+    # image_encoder = CLIPVisionModelWithProjection.from_pretrained(args.pretrained_model_name_or_path, subfolder="image_encoder", revision=args.revision)
+    # TODO: ZZ debug
+    #     return F.linear(input, self.weight, self.bias)
+    # RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x516 and 772x768)
+    image_encoder = CLIPVisionModelWithProjection.from_pretrained("openai/clip-vit-base-patch32")
     feature_extractor = None #CLIPFeatureExtractor.from_pretrained(args.pretrained_model_name_or_path, subfolder="feature_extractor", revision=args.revision)
     vae = AutoencoderKL.from_pretrained(args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision)
     unet = UNet2DConditionModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision)
@@ -591,6 +595,8 @@ def main(args):
 
     # zero init cc_projection
     cc_projection = CCProjection()
+    # ZZ debug
+    cc_projection = CCProjection(in_channel=516, out_channel=768)
     torch.nn.init.eye_(list(cc_projection.parameters())[0][:768, :768])
     torch.nn.init.zeros_(list(cc_projection.parameters())[1])
     cc_projection.requires_grad_(True)
